@@ -8,6 +8,9 @@ Usage:
                              --st-deviation --elevated-markers
     python cli.py killip --class 2
     python cli.py batch -i patients.csv -o results.csv
+    python cli.py audit --task-id CLI-001
+    python cli.py chat "Explain specifications"
+    python cli.py verify-audit
 
 Zero external dependencies — Python stdlib only.
 """
@@ -100,6 +103,55 @@ def cmd_batch(args):
     return 0
 
 
+def cmd_audit(args):
+    """Run an audit task through the supervisor."""
+    try:
+        from agents.supervisor import SystemSupervisor
+        from agents.models import SystemTaskPayload
+        from agents.base import AuditLogger
+
+        supervisor = SystemSupervisor(model_provider="mock")
+        payload = SystemTaskPayload(
+            task_id=args.task_id,
+            target_identifier=args.task_id,
+            primary_metric=10.0,
+            secondary_metric=5.0,
+            status_descriptor="NOMINAL",
+        )
+        dossier = supervisor.process_task(payload)
+        print(json.dumps(dossier.to_dict(), indent=2, default=str))
+        return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_chat(args):
+    """Query the supervisory chat assistant."""
+    try:
+        from agents.supervisor import SystemSupervisor
+
+        supervisor = SystemSupervisor(model_provider="mock")
+        query = " ".join(args.query)
+        response = supervisor.query_supervisory_chat(query)
+        print(response)
+        return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_verify_audit(args):
+    """Verify the integrity of the HMAC audit trail."""
+    from agents.base import AuditLogger
+
+    verified = AuditLogger.verify_integrity()
+    trail_len = len(AuditLogger.get_trail())
+    print(f"Audit trail entries: {trail_len}")
+    print(f"Integrity verified: {verified}")
+    return 0 if verified else 1
+
+
 def _parse_bool(val: str) -> bool:
     """Parse a string as boolean (handles true/false/yes/no/1/0)."""
     return str(val).strip().lower() in ("true", "yes", "1")
@@ -150,6 +202,29 @@ def main(argv=None):
     p_batch.add_argument("-i", "--input", required=True, help="Input CSV file")
     p_batch.add_argument("-o", "--output", default="results.csv", help="Output CSV file")
     p_batch.set_defaults(func=cmd_batch)
+
+    # --- audit ---
+    p_audit = subparsers.add_parser(
+        "audit",
+        help="Run an audit task through the supervisor",
+    )
+    p_audit.add_argument("--task-id", required=True, help="Task identifier")
+    p_audit.set_defaults(func=cmd_audit)
+
+    # --- chat ---
+    p_chat = subparsers.add_parser(
+        "chat",
+        help="Query the supervisory chat assistant",
+    )
+    p_chat.add_argument("query", nargs="+", help="Query text")
+    p_chat.set_defaults(func=cmd_chat)
+
+    # --- verify-audit ---
+    p_verify = subparsers.add_parser(
+        "verify-audit",
+        help="Verify the integrity of the HMAC audit trail",
+    )
+    p_verify.set_defaults(func=cmd_verify_audit)
 
     args = parser.parse_args(argv)
     return args.func(args)
