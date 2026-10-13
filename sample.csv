@@ -1,4 +1,4 @@
-Patient_ID,v1,v2,v3
-PT-101,14.5,4.2,1.8
-PT-102,8.0,2.1,0.5
-PT-103,28.4,12.0,5.5
+age,heart_rate,systolic_bp,creatinine,killip_class,cardiac_arrest,st_deviation,elevated_markers
+65,80,130,1.0,1,false,false,false
+67,96,128,1.1,1,false,true,true
+78,115,85,2.5,3,false,true,true
