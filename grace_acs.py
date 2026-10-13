@@ -1,118 +1,88 @@
-#!/usr/bin/env python3
-"""
-GRACE 2.0 ACS Risk Calculator
-Computes GRACE in-hospital and 6-month post-discharge mortality in acute coronary syndromes.
+"""Compatibility entry point for the published GRACE in-hospital point model.
 
-Zero-dependency Python implementation with single and batch evaluation.
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+The previous generic weighted-sum demo was NOT a GRACE risk calculator.
 """
-
-import argparse
 import csv
-import json
-import math
-import sys
-from typing import Dict, Any, List, Optional
+from pathlib import Path
+
+from grace import calculate_grace_score
+from cli import main as cli_main
+
+_REQUIRED = ("age", "heart_rate", "systolic_bp", "creatinine", "killip_class")
 
 
-def calculate_metrics(**kwargs) -> Dict[str, Any]:
-    """
-    Core domain algorithm for grace-acs-risk-calculator.
-    """
-    params = {}
-    for k, v in kwargs.items():
-        if v is not None:
-            try:
-                params[k] = float(v)
-            except (ValueError, TypeError):
-                params[k] = str(v)
+def _integer(value, name):
+    number = float(value)
+    if not number.is_integer():
+        raise ValueError(f"{name} must be a whole number")
+    return int(number)
 
-    # Deterministic domain logic
-    numeric_vals = [val for val in params.values() if isinstance(val, (int, float))]
-    primary_val = numeric_vals[0] if numeric_vals else 1.0
 
-    score = primary_val
-    for idx, nv in enumerate(numeric_vals[1:], start=2):
-        score += nv * (1.0 / idx)
+def _boolean(value, name):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        if value.strip().lower() in ("true", "yes", "1"):
+            return True
+        if value.strip().lower() in ("false", "no", "0", ""):
+            return False
+    raise ValueError(f"{name} must be true or false")
 
-    rounded_score = round(score, 2)
-    
-    # Classification / tiering
-    if rounded_score < 10.0:
-        tier = "Low / Standard"
-        action = "Standard monitoring or negative cutoff"
-    elif rounded_score < 25.0:
-        tier = "Moderate / Intermediate"
-        action = "Close observation or secondary evaluation"
-    else:
-        tier = "High / Severe"
-        action = "Urgent clinical intervention or primary positive finding"
 
+def calculate_metrics(**kwargs):
+    """Calculate the historical GRACE score from named clinical parameters."""
+    missing = [name for name in _REQUIRED if name not in kwargs or kwargs[name] in (None, "")]
+    if missing:
+        raise ValueError("Missing required GRACE parameters: " + ", ".join(missing))
+    result = calculate_grace_score(
+        age=_integer(kwargs["age"], "age"),
+        heart_rate=_integer(kwargs["heart_rate"], "heart_rate"),
+        systolic_bp=_integer(kwargs["systolic_bp"], "systolic_bp"),
+        creatinine=float(kwargs["creatinine"]),
+        killip_class=_integer(kwargs["killip_class"], "killip_class"),
+        cardiac_arrest=_boolean(kwargs.get("cardiac_arrest", False), "cardiac_arrest"),
+        st_deviation=_boolean(kwargs.get("st_deviation", False), "st_deviation"),
+        elevated_markers=_boolean(kwargs.get("elevated_markers", False), "elevated_markers"),
+    )
+    # Maintain prior convenience aliases, with the actual GRACE definitions.
     return {
-        "tool": "grace-acs-risk-calculator",
-        "score": rounded_score,
-        "classification": tier,
-        "clinical_recommendation": action,
-        "inputs_evaluated": len(params),
+        **result,
+        "score": result["grace_score"],
+        "classification": result["in_hospital_risk_category"],
+        "clinical_recommendation": result["treatment_recommendation"],
     }
 
 
-def process_single(args) -> None:
-    kwargs = vars(args)
-    kwargs.pop("func", None)
-    res = calculate_metrics(**kwargs)
-    print(json.dumps(res, indent=2))
-
-
 def process_batch(input_csv: str, output_csv: str) -> None:
-    with open(input_csv, mode="r", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        fieldnames = list(reader.fieldnames or [])
+    """Write GRACE scores for a CSV. Fail on invalid data rather than fabricate a score."""
+    with open(input_csv, newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        original_fields = reader.fieldnames or []
+        if not set(_REQUIRED).issubset(original_fields):
+            raise ValueError("CSV requires columns: " + ", ".join(_REQUIRED))
         rows = list(reader)
-
-    out_fields = fieldnames + ["score", "classification", "clinical_recommendation"]
-    out_rows = []
-
-    for r in rows:
-        calc_res = calculate_metrics(**r)
-        row_dict = dict(r)
-        row_dict["score"] = calc_res["score"]
-        row_dict["classification"] = calc_res["classification"]
-        row_dict["clinical_recommendation"] = calc_res["clinical_recommendation"]
-        out_rows.append(row_dict)
-
-    with open(output_csv, mode="w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=out_fields)
+    result_fields = ["grace_score", "in_hospital_risk_category",
+                     "in_hospital_mortality_nomogram", "model_limitations"]
+    if any(field in original_fields for field in result_fields):
+        raise ValueError("Input CSV uses a reserved result column")
+    output = []
+    for number, row in enumerate(rows, start=2):
+        try:
+            result = calculate_metrics(**row)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid record on CSV line {number}: {exc}") from exc
+        output.append({**row, **{name: result[name] for name in result_fields}})
+    with open(output_csv, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=original_fields + result_fields)
         writer.writeheader()
-        writer.writerows(out_rows)
-
-    print(f"Processed {len(out_rows)} records -> {output_csv}")
+        writer.writerows(output)
+    print(f"Processed {len(rows)} records -> {output_csv}")
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="GRACE 2.0 ACS Risk Calculator")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # Single parser
-    single_parser = subparsers.add_parser("single", help="Evaluate single case")
-    single_parser.add_argument("--v1", type=float, default=10.0, help="Primary parameter")
-    single_parser.add_argument("--v2", type=float, default=5.0, help="Secondary parameter")
-    single_parser.add_argument("--v3", type=float, default=2.0, help="Tertiary parameter")
-    single_parser.set_defaults(func=process_single)
-
-    # Batch parser
-    batch_parser = subparsers.add_parser("batch", help="Process batch CSV")
-    batch_parser.add_argument("-i", "--input", required=True, help="Input CSV")
-    batch_parser.add_argument("-o", "--output", default="results.csv", help="Output CSV")
-
-    args = parser.parse_args(argv)
-
-    if args.command == "single":
-        args.func(args)
-    elif args.command == "batch":
-        process_batch(args.input, args.output)
+    """Forward to the supported clinical CLI, preserving this module's entry point."""
+    return cli_main(argv)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
