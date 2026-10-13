@@ -3,7 +3,6 @@
 The previous generic weighted-sum demo was NOT a GRACE risk calculator.
 """
 import csv
-from pathlib import Path
 
 from grace import calculate_grace_score
 from cli import main as cli_main
