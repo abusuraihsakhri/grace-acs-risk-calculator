@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Original 2003 GRACE ACS in-hospital point score for educational reference. No patient data is transmitted.">
+  <title>GRACE ACS — Original In-Hospital Risk Score</title>
+  <style>
+    :root { color-scheme: light; --ink:#172a43; --muted:#52637a; --accent:#156596; --line:#d9e1e8; --panel:#fff; --bg:#f5f8fb; }
+    * { box-sizing:border-box; }
+    body { font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif; margin:0; background:var(--bg); color:var(--ink); line-height:1.5; }
+    main { max-width:1040px; padding:24px 16px 56px; margin:auto; }
+    header { border-bottom:1px solid var(--line); padding-bottom:18px; margin-bottom:20px; }
+    h1 { margin:0 0 6px; font-size:clamp(1.4rem,3vw,2rem); letter-spacing:-.025em; }
+    h2 { font-size:1.14rem; margin:0 0 14px; }
+    p { margin:6px 0 12px; }
+    .muted,small { color:var(--muted); }
+    .notice { border-left:4px solid #a46c1c; background:#fff9ee; padding:11px 15px; margin:18px 0; }
+    .layout { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr); gap:18px; align-items:start; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px; }
+    .fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .field label { display:block; font-weight:650; font-size:.87rem; margin-bottom:5px; }
+    .field input,.field select { width:100%; border:1px solid #899eb2; background:white; padding:10px 11px; border-radius:7px; color:var(--ink); font:inherit; }
+    fieldset { margin:18px 0 16px; border:1px solid var(--line); border-radius:7px; padding:12px; }
+    legend { font-weight:700; padding:0 5px; }
+    .check { display:flex; gap:9px; align-items:flex-start; padding:5px 0; }
+    .check input { width:18px; height:18px; flex:none; margin:3px 0 0; }
+    .check label { cursor:pointer; }
+    button { font:inherit; font-weight:650; padding:10px 15px; border-radius:7px; border:1px solid var(--accent); background:var(--accent); color:white; cursor:pointer; }
+    button.secondary { color:var(--accent); background:white; }
+    button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible { outline:3px solid #e2ab3e; outline-offset:2px; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .result { min-height:220px; }
+    .score { font-weight:750; font-size:3.3rem; line-height:1.25; font-variant-numeric:tabular-nums; }
+    .caption { text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-size:.74rem; font-weight:750; }
+    .category { font-weight:700; font-size:1.1rem; margin-bottom:12px; }
+    dl { display:grid; grid-template-columns:1fr auto; gap:7px 14px; font-size:.91rem; margin:12px 0; }
+    dt { color:var(--muted); } dd { margin:0; font-variant-numeric:tabular-nums; font-weight:650; text-align:right; }
+    .error { color:#9e231c; font-weight:650; }
+    .hidden { display:none; }
+    footer { margin-top:22px; color:var(--muted); font-size:.85rem; }
+    a { color:#0b5c91; }
+    @media(max-width:760px) { .layout{ grid-template-columns:1fr; } main{padding:16px 12px 40px;} .panel{padding:16px;} }
+    @media(max-width:390px) { .fields{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>GRACE ACS Risk Score</h1>
+    <p class="muted">Original 2003 eight-variable <strong>in-hospital</strong> bedside point model</p>
+  </header>
+  <div class="notice"><strong>Clinical scope.</strong> Historical GRACE 1.0 point scoring only. This is <strong>not</strong> the nonlinear GRACE 2.0 model and does not calculate a six-month risk. Use clinical assessment and current ACS pathways; do not base treatment decisions on this tool alone.</div>
+  <div class="layout">
+    <section class="panel" aria-labelledby="input-title">
+      <h2 id="input-title">Presentation variables</h2>
+      <form id="form">
+        <div class="fields">
+          <div class="field"><label for="age">Age (years)</label><input id="age" type="number" min="18" max="120" step="1" required value="65"></div>
+          <div class="field"><label for="hr">Heart rate (bpm)</label><input id="hr" type="number" min="20" max="300" step="1" required value="80"></div>
+          <div class="field"><label for="sbp">Systolic blood pressure (mmHg)</label><input id="sbp" type="number" min="50" max="300" step="1" required value="130"></div>
+          <div class="field"><label for="creatinine">Serum creatinine (mg/dL)</label><input id="creatinine" type="number" min="0.1" max="20" step="any" required value="1.0"></div>
+          <div class="field"><label for="killip">Killip class</label><select id="killip"><option value="1">I — No heart failure</option><option value="2">II — Mild heart failure</option><option value="3">III — Pulmonary edema</option><option value="4">IV — Cardiogenic shock</option></select></div>
+        </div>
+        <fieldset>
+          <legend>Additional findings at presentation</legend>
+          <div class="check"><input id="arrest" type="checkbox"><label for="arrest">Cardiac arrest at admission</label></div>
+          <div class="check"><input id="st" type="checkbox"><label for="st">ST-segment deviation on the ECG</label></div>
+          <div class="check"><input id="markers" type="checkbox"><label for="markers">Elevated initial cardiac biomarkers</label></div>
+        </fieldset>
+        <div class="actions"><button type="submit">Calculate score</button><button class="secondary" id="reset" type="reset">Reset</button><button class="secondary hidden" id="export" type="button">Export result JSON</button></div>
+      </form>
+    </section>
+    <section class="panel result" aria-labelledby="result-title">
+      <h2 id="result-title">Results</h2>
+      <div aria-live="polite" aria-atomic="true" id="status">Enter presentation variables and calculate the score.</div>
+      <div id="results" class="hidden">
+        <div class="caption">Total GRACE points</div><div id="score" class="score"></div>
+        <div id="category" class="category"></div>
+        <p id="band"></p><p id="nomogram"></p>
+        <h2>Point breakdown</h2>
+        <dl id="breakdown"></dl>
+        <small>The nomogram percentage is the <strong>published lower score anchor</strong>, not interpolation or an individual risk prediction. ≤60 and ≥250 are open-ended bounds.</small>
+      </div>
+    </section>
+  </div>
+  <footer>
+    <p><strong>References:</strong> Granger CB et al. <em>Arch Intern Med</em>. 2003;163:2345–2353. <a href="https://pubmed.ncbi.nlm.nih.gov/14581255/" target="_blank" rel="noopener noreferrer">PMID 14581255</a>. For continuous probabilities see the <a href="https://www.gracescore.org/" target="_blank" rel="noopener noreferrer">official GRACE 2.0 tool</a>.</p>
+    <p><strong>Privacy:</strong> Calculations run within this page. No information is transmitted to a server, logged, or stored in the browser by this application. Export is initiated only when requested. Do not enter identifying patient information.</p>
+  </footer>
+</main>
+<script src="./calculator.js"></script>
+<script>
+  "use strict";
+  const form = document.getElementById("form");
+  const status = document.getElementById("status");
+  const results = document.getElementById("results");
+  const exportButton = document.getElementById("export");
+  let current = null;
+  const pointLabels = [
+    ["age", "Age"], ["heartRate", "Heart rate"], ["systolicBP", "Systolic BP"],
+    ["creatinine", "Creatinine"], ["killip", "Killip class"],
+    ["cardiacArrest", "Cardiac arrest"], ["stDeviation", "ST deviation"],
+    ["markers", "Elevated markers"]
+  ];
+  function number(id) {
+    const element = document.getElementById(id);
+    return element.tagName === "SELECT" ? Number(element.value) : element.valueAsNumber;
+  }
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    results.classList.add("hidden");
+    exportButton.classList.add("hidden");
+    current = null;
+    status.classList.remove("error");
+    if (!form.reportValidity()) return;
+    try {
+      const input = {
+        age:number("age"),heart_rate:number("hr"),systolic_bp:number("sbp"),
+        creatinine:number("creatinine"),killip_class:number("killip"),
+        cardiac_arrest:document.getElementById("arrest").checked,
+        st_deviation:document.getElementById("st").checked,
+        elevated_markers:document.getElementById("markers").checked
+      };
+      const calculated = GRACE.calculate(input);
+      current = { input, ...calculated };
+      document.getElementById("score").textContent = calculated.score + " / 372";
+      document.getElementById("category").textContent = "Historical ESC tier: " + calculated.category;
+      document.getElementById("band").textContent = "Historical in-hospital band: " + calculated.historicalBand;
+      document.getElementById("nomogram").textContent = "2003 nomogram: " + calculated.nomogram;
+      const breakdown = document.getElementById("breakdown");
+      breakdown.replaceChildren();
+      for (const [key, label] of pointLabels) {
+        const dt = document.createElement("dt"), dd = document.createElement("dd");
+        dt.textContent = label;
+        dd.textContent = "+" + calculated.breakdown[key];
+        breakdown.append(dt, dd);
+      }
+      status.textContent = "Score calculated from eight historical GRACE variables.";
+      results.classList.remove("hidden");
+      exportButton.classList.remove("hidden");
+    } catch (error) {
+      status.textContent = error.message || "Unable to calculate";
+      status.classList.add("error");
+    }
+  });
+  form.addEventListener("reset", function () {
+    current = null;
+    results.classList.add("hidden");
+    exportButton.classList.add("hidden");
+    status.classList.remove("error");
+    status.textContent = "Enter presentation variables and calculate the score.";
+  });
+  exportButton.addEventListener("click", function () {
+    if (!current) return;
+    const blob = new Blob([JSON.stringify(current,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = "grace-2003-result.json";
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+</script>
+</body>
+</html>

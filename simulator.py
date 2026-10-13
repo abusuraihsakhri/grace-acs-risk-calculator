@@ -9,13 +9,16 @@ from agents.supervisor import SystemSupervisor
 from agents.base import PHIGuard, SecurityException, AuditLogger
 
 def run_simulation(iterations: int = 100):
-    print(f"Starting Distributed Component Simulation on Grace Acs Risk Calculator ({iterations} tasks)...")
+    if not isinstance(iterations, int) or iterations < 1:
+        raise ValueError("iterations must be a positive integer")
+    print(f"Starting legacy generic-worker simulation ({iterations} tasks; NOT clinical GRACE calculations)...")
     supervisor = SystemSupervisor(model_provider="mock")
     start_time = time.time()
     nominal_count = 0
     elevated_count = 0
     critical_count = 0
     phi_blocked_count = 0
+    phi_tests = 0
 
     for i in range(iterations):
         # 1. Normal / Elevated / Critical payload distribution
@@ -43,6 +46,7 @@ def run_simulation(iterations: int = 100):
 
         # 2. Adversarial PHI test injection (every 25 iterations)
         if (i + 1) % 25 == 0:
+            phi_tests += 1
             try:
                 PHIGuard.assert_no_phi(f"Patient John Doe MRN-{random.randint(100000, 999999)} test")
             except SecurityException:
@@ -57,7 +61,8 @@ def run_simulation(iterations: int = 100):
     print(f"  Routine Outcomes:          {nominal_count} ({nominal_count/iterations*100:.1f}%)")
     print(f"  Elevated Risk Outcomes:    {elevated_count} ({elevated_count/iterations*100:.1f}%)")
     print(f"  Critical Interventions:    {critical_count} ({critical_count/iterations*100:.1f}%)")
-    print(f"  Adversarial PHI Intercepts:{phi_blocked_count} (100% Interception Rate)")
+    print(f"  Synthetic identifier checks blocked: {phi_blocked_count}/{phi_tests}")
+    print("  Heuristic test only; not a guarantee of PHI detection or compliance.")
     print(f"  HMAC Audit Ledger Blocks:  {len(AuditLogger.get_trail())}")
     print(f"  HMAC Cryptographic Check:  {AuditLogger.verify_integrity()}")
     print("=" * 70)

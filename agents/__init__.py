@@ -1,7 +1,7 @@
 """
-Grace Acs Risk Calculator — Enterprise Automated Analytical Suite.
+Grace Acs Risk Calculator — GRACE ACS scoring and legacy demonstration modules.
 Domain: Clinical & Biomedical AI
-Standard: CAP / CLSI / ISO Standards
+The generic worker demonstrations are not validated clinical decision systems.
 
 """
-__version__ = "3.0.0-ENTERPRISE"
+__version__ = "3.1.0"

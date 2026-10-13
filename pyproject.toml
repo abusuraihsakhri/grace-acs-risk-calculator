@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "grace-acs-risk-calculator"
-version = "3.0.0"
-description = "GRACE ACS Risk Score Calculator — in-hospital and 6-month mortality risk for acute coronary syndromes"
+version = "3.1.0"
+description = "Historical GRACE 2003 in-hospital ACS point score and reference web calculator"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -20,12 +20,11 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
 
 [project.optional-dependencies]
 web = ["fastapi>=0.111", "uvicorn>=0.30", "pydantic>=2.0"]
-dev = ["pytest>=8.0", "fastapi>=0.111", "uvicorn>=0.30", "pydantic>=2.0"]
+dev = ["pytest>=8.0", "fastapi>=0.111", "uvicorn>=0.30", "pydantic>=2.0", "httpx>=0.27,<1"]
 
 [project.scripts]
 grace-acs = "cli:main"
@@ -33,3 +32,9 @@ grace-acs = "cli:main"
 [tool.pytest.ini_options]
 testpaths = ["tests", "."]
 python_files = ["test_*.py"]
+
+[tool.setuptools]
+py-modules = ["grace", "grace_acs", "cli", "enrichment", "simulator"]
+
+[tool.setuptools.packages.find]
+include = ["agents*"]

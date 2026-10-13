@@ -1,198 +1,111 @@
 # GRACE ACS Risk Calculator
 
-> **Domain:** Cardiovascular Medicine & Hemodynamic Analytics
-> **Reference Guidelines & Standards:** AHA/ACC Practice Guidelines & ESC Clinical Standards
+Historical **GRACE 2003 in-hospital ACS point score** implemented in Python and
+plain JavaScript. Calculates the eight-factor score (1–372), component points,
+and the historical in-hospital risk tier and printed nomogram anchors.
 
-<div align="center">
+> **Model scope:** This project implements the original Granger et al. (2003)
+> bedside *in-hospital* nomogram. It **does not** implement the official
+> nonlinear GRACE 2.0 mortality equations, six-month post-discharge mortality,
+> or an individualized treatment algorithm. The printed percentage is a
+> historical nomogram anchor, **not an interpolated individual prediction**.
+> This is an educational reference and is not a medical device.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+## Application
 
-</div>
+The static browser calculator is in [docs/index.html](docs/index.html).
+GitHub Pages deployment is configured in
+[.github/workflows/pages.yml](.github/workflows/pages.yml); the public Pages
+URL should be used only once the deployment has succeeded and the site is
+verified. Open the static file directly or start a local server:
 
----
+~~~sh
+python -m http.server 8080 --directory docs
+~~~
 
-## What It Does
+Open http://localhost:8080 in a modern browser. The web form accepts age,
+heart rate, systolic blood pressure, creatinine (mg/dL), Killip class,
+cardiac arrest at admission, ST-segment deviation and elevated initial
+cardiac biomarkers. It shows the breakdown and can export a JSON result.
 
-GRACE (Global Registry of Acute Coronary Events) ACS Risk Score Calculator.
+Browser calculations run entirely client-side; the static page does not send,
+store or track entered data. Do not enter patient identifiers. The optional
+FastAPI endpoint processes requests on the configured server, where deployment
+operators are responsible for privacy and logging controls. The historical
+audit demo in the repository is **not** a verified PHI-deidentification system.
 
-Computes in-hospital and 6-month mortality risk for patients presenting with
-Acute Coronary Syndromes (ACS) — STEMI, NSTEMI, and unstable angina.
+## Python CLI
 
-Based on:
-- GRACE Risk Score (2003): Fox KAA, et al. "Prediction of risk of death and
-  myocardial infarction in the six months after presentation with acute
-  coronary syndrome." BMJ 2006;333:1091.
-- GRACE 2.0 (2014): Fox KAA, et al. "Long-term outcome of a routine versus
-  selective invasive strategy in patients with non-ST-segment elevation acute
-  coronary syndrome." J Am Coll Cardiol 2014.
+Requires Python 3.10 or later; core scoring uses the standard library.
 
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+~~~sh
+python cli.py calculate --age 65 --hr 80 --sbp 130 --creatinine 1.0 --killip 1 --json
+python cli.py calculate --age 67 --hr 96 --sbp 128 --creatinine 1.1 --killip 1 --st-deviation --elevated-markers
+python cli.py killip --class 3
+python cli.py batch -i sample.csv -o results.csv
+~~~
 
----
+The first example scores **108**; the second scores **156**. Required batch
+CSV columns are **age,heart_rate,systolic_bp,creatinine,killip_class**, with
+optional Boolean columns **cardiac_arrest,st_deviation,elevated_markers**.
+Invalid Boolean values are rejected. The grace_acs.calculate_metrics and
+grace_acs.process_batch compatibility interfaces use these same clinical
+parameters; the previous generic v1/v2/v3 calculation has been withdrawn
+because it was not GRACE.
 
-## Key Capabilities & Algorithmic Modules
+## API and local development
 
-### Analytical Functions
+~~~sh
+python -m pip install -e ".[dev]"
+python -m pytest -q
+node --test tests/test_browser.cjs
+python cli.py serve --host 127.0.0.1 --port 8000
+~~~
 
-- **`describe_killip()`**: Return a clinical description for a Killip class (1-4).
-- **`calculate_grace_score()`**: Calculate the GRACE ACS Risk Score and return a full result dict.
-- **`format_result()`**: Return a human-readable multi-line summary of a GRACE result.
-- **`calculate_metrics()`**: Core domain algorithm for single/batch evaluation.
-- **`process_single()`** — calculates and validates parameters.
-- **`process_batch()`** — processes CSV files of patients.
+Then visit http://localhost:8000/ for the UI and
+http://localhost:8000/docs for the API documentation. The clinical endpoint is
+**POST /api/grace** with JSON input, e.g.:
 
-### CLI Commands
+~~~json
+{
+  "age": 65,
+  "heart_rate": 80,
+  "systolic_bp": 130,
+  "creatinine": 1.0,
+  "killip_class": 1,
+  "cardiac_arrest": false,
+  "st_deviation": false,
+  "elevated_markers": false
+}
+~~~
 
-- **`calculate`** — Calculate GRACE score for a single patient
-- **`killip`** — Describe a Killip classification
-- **`batch`** — Batch-process a CSV of patients
-- **`audit`** — Run an audit task through the supervisor
-- **`chat`** — Query the supervisory chat assistant
-- **`verify-audit`** — Verify the integrity of the HMAC audit trail
+Docker: **docker compose up --build** exposes the app at localhost port 8000.
+The optional in-memory audit demo generates an ephemeral HMAC key when
+AUDIT_SECRET_KEY is unset; production users needing audit continuity must
+inject a strong secret using their infrastructure. Audit records are not a
+persisted compliance log. Separate generic supervisor/worker demonstration
+modules remain available, but are not validated clinical scoring functions.
 
----
+## References and limitations
 
-## CLI Quickstart & Usage
+- Granger CB et al. *Predictors of hospital mortality in the global registry
+  of acute coronary events*. Arch Intern Med. 2003;163:2345–2353.
+  [doi:10.1001/archinte.163.19.2345](https://doi.org/10.1001/archinte.163.19.2345).
+- [Official GRACE 2.0 calculator and FAQ](https://www.gracescore.org/):
+  a distinct nonlinear multivariable model.
+- [ESC 2023 ACS guidelines](https://doi.org/10.1093/eurheartj/ehad191):
+  clinical risk stratification and invasive-management context.
 
-### 1. Calculate GRACE Score
-```bash
-python cli.py calculate --age 65 --hr 85 --sbp 130 --creatinine 1.1 --killip 1
-python cli.py calculate --age 70 --hr 100 --sbp 90 --creatinine 2.0 --killip 3 --st-deviation --elevated-markers
-python cli.py calculate --age 65 --hr 85 --sbp 130 --creatinine 1.1 --killip 1 --json
-```
+The score uses values **at presentation**. The historical
+≤108 / 109–140 / >140 tiers should not be treated as independent management
+instructions. Interpret the score with the full clinical presentation and
+current guidelines. The Python and JavaScript implementations have regression
+tests for worked examples, boundary points and published nomogram anchors.
+Validation for patient-care deployment has **not** been performed.
 
-### 2. Killip Classification Helper
-```bash
-python cli.py killip --class 2
-```
+**Technology:** Python standard library, optional FastAPI/Pydantic/Uvicorn,
+vanilla HTML/CSS/JavaScript. No Pyodide or server-side Python is required for
+the static calculator. CI covers Python 3.10–3.13 and Node.js 22; modern
+evergreen browsers are targeted.
 
-### 3. Batch Processing
-```bash
-python cli.py batch -i patients.csv -o results.csv
-```
-
-### 4. Audit & Verification
-```bash
-python cli.py audit --task-id CLI-001
-python cli.py chat "Explain specifications"
-python cli.py verify-audit
-```
-
-### Parameter Reference
-- `--age`: Patient age in years (18-120)
-- `--hr`: Heart rate in beats per minute (20-300)
-- `--sbp`: Systolic blood pressure in mmHg (50-300)
-- `--creatinine`: Serum creatinine in mg/dL (0.1-20.0)
-- `--killip`: Killip class at presentation (1-4)
-- `--cardiac-arrest`: Cardiac arrest at admission (flag)
-- `--st-deviation`: ST-segment deviation on ECG (flag)
-- `--elevated-markers`: Elevated cardiac markers (flag)
-- `--json`: Output as JSON instead of formatted text
-
-### Input Data Schema (for batch CSV)
-
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `age` | Patient age in years | Required |
-| `heart_rate` | Heart rate (bpm) | Required |
-| `systolic_bp` | Systolic BP (mmHg) | Required |
-| `creatinine` | Serum creatinine (mg/dL) | Required |
-| `killip_class` | Killip class (1-4) | Required |
-| `cardiac_arrest` | Cardiac arrest at admission | Optional (default: false) |
-| `st_deviation` | ST-segment deviation | Optional (default: false) |
-| `elevated_markers` | Elevated cardiac markers | Optional (default: false) |
-
----
-
-## Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances, Claude, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-
----
-
-## Testing & Verification
-
-Run the automated test suite:
-
-```bash
-pytest -v
-```
-
-Execute high-throughput batch simulation benchmarks:
-
-```bash
-python simulator.py 1000
-```
-
----
-
-## Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/abusuraihsakhri/grace-acs-risk-calculator.git
-cd grace-acs-risk-calculator
-
-# Core module (zero dependencies)
-python cli.py calculate --age 65 --hr 85 --sbp 130 --creatinine 1.1 --killip 1
-
-# With web/API support (optional)
-pip install -e ".[web]"
-
-# With development dependencies
-pip install -e ".[dev]"
-```
-
----
-
-## Container Deployment
-
-```bash
-docker build -t grace-acs-risk-calculator .
-docker run -p 8000:8000 grace-acs-risk-calculator
-```
-
-Or with docker-compose:
-
-```bash
-docker-compose up -d
-```
-
----
-
-## Project Structure
-
-```
-grace-acs-risk-calculator/
-├── grace.py              # Core GRACE scoring algorithm
-├── grace_acs.py          # Alternative scoring module with batch support
-├── cli.py                # Command-line interface
-├── enrichment.py         # Enrichment feature engines
-├── simulator.py          # High-throughput stress testing simulator
-├── agents/               # Enterprise agent modules
-│   ├── base.py           # Security, PHI guard, HMAC audit
-│   ├── models.py         # Pydantic data models
-│   ├── supervisor.py     # Multi-agent orchestrator
-│   ├── workers.py        # Specialized domain workers
-│   ├── api.py            # FastAPI REST endpoints
-│   ├── metrics.py        # Prometheus metrics collector
-│   ├── learning.py       # Bayesian calibration engine
-│   └── llm_factory.py    # LLM client factory
-├── tests/                # Test suite
-│   ├── test_grace.py     # Core algorithm tests
-│   ├── test_enrichment.py
-│   └── test_grace_acs_risk_calculator.py
-├── test_grace_acs.py     # Root-level integration tests
-├── pyproject.toml        # Project configuration
-├── Dockerfile            # Container build
-├── docker-compose.yml    # Container orchestration
-└── openapi_spec.json     # OpenAPI 3.1 specification
-```
+**License:** [MIT](LICENSE).

@@ -32,3 +32,15 @@ output.csv
 
 # Docker
 .docker/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Package build products
+build/
+dist/
+*.egg-info/

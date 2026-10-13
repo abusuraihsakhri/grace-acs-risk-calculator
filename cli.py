@@ -43,6 +43,17 @@ def cmd_calculate(args):
     return 0
 
 
+def cmd_serve(args):
+    """Run the optional FastAPI application (requires the web extra)."""
+    try:
+        import uvicorn
+    except ImportError:
+        print("Install pip install -e '.[web]' to use the server", file=sys.stderr)
+        return 1
+    uvicorn.run("agents.api:app", host=args.host, port=args.port)
+    return 0
+
+
 def cmd_killip(args):
     """Describe a Killip class."""
     try:
@@ -63,10 +74,9 @@ def cmd_batch(args):
 
     out_fields = fieldnames + [
         "grace_score",
-        "in_hospital_mortality_pct",
+        "in_hospital_mortality_nomogram",
         "in_hospital_risk_category",
-        "six_month_mortality_pct",
-        "six_month_risk_category",
+        "model_limitations",
         "treatment_recommendation",
     ]
     out_rows = []
@@ -85,14 +95,14 @@ def cmd_batch(args):
             )
             row_dict = dict(r)
             row_dict["grace_score"] = result["grace_score"]
-            row_dict["in_hospital_mortality_pct"] = result["in_hospital_mortality_pct"]
+            row_dict["in_hospital_mortality_nomogram"] = result["in_hospital_mortality_nomogram"]
             row_dict["in_hospital_risk_category"] = result["in_hospital_risk_category"]
-            row_dict["six_month_mortality_pct"] = result["six_month_mortality_pct"]
-            row_dict["six_month_risk_category"] = result["six_month_risk_category"]
+            row_dict["model_limitations"] = result["model_limitations"]
             row_dict["treatment_recommendation"] = result["treatment_recommendation"]
             out_rows.append(row_dict)
-        except (ValueError, KeyError) as e:
-            print(f"Warning: Row {i} skipped — {e}", file=sys.stderr)
+        except (ValueError, KeyError, TypeError) as e:
+            print(f"Error: invalid input on CSV record {i}: {e}", file=sys.stderr)
+            return 1
 
     with open(args.output, mode="w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=out_fields)
@@ -153,14 +163,19 @@ def cmd_verify_audit(args):
 
 
 def _parse_bool(val: str) -> bool:
-    """Parse a string as boolean (handles true/false/yes/no/1/0)."""
-    return str(val).strip().lower() in ("true", "yes", "1")
+    """Parse a Boolean without silently converting malformed input to false."""
+    normalized = str(val).strip().lower()
+    if normalized in ("true", "yes", "1"):
+        return True
+    if normalized in ("false", "no", "0", ""):
+        return False
+    raise ValueError(f"Invalid boolean value: {val!r}")
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="grace-acs-risk-calculator",
-        description="GRACE ACS Risk Score Calculator — in-hospital and 6-month mortality",
+        description="GRACE original 2003 in-hospital point score",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -219,6 +234,12 @@ def main(argv=None):
     p_chat.add_argument("query", nargs="+", help="Query text")
     p_chat.set_defaults(func=cmd_chat)
 
+    # --- serve ---
+    p_serve = subparsers.add_parser("serve", help="Serve the web UI and API")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.set_defaults(func=cmd_serve)
+
     # --- verify-audit ---
     p_verify = subparsers.add_parser(
         "verify-audit",
@@ -227,7 +248,11 @@ def main(argv=None):
     p_verify.set_defaults(func=cmd_verify_audit)
 
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except (ValueError, KeyError, TypeError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
