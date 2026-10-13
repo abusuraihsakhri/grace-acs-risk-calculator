@@ -103,12 +103,16 @@
     ["cardiacArrest", "Cardiac arrest"], ["stDeviation", "ST deviation"],
     ["markers", "Elevated markers"]
   ];
-  function number(id) { return document.getElementById(id).valueAsNumber; }
+  function number(id) {
+    const element = document.getElementById(id);
+    return element.tagName === "SELECT" ? Number(element.value) : element.valueAsNumber;
+  }
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     results.classList.add("hidden");
     exportButton.classList.add("hidden");
     current = null;
+    status.classList.remove("error");
     if (!form.reportValidity()) return;
     try {
       const input = {
@@ -154,7 +158,7 @@
     const link = document.createElement("a");
     link.href = url; link.download = "grace-2003-result.json";
     document.body.append(link); link.click(); link.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   });
 </script>
 </body>
