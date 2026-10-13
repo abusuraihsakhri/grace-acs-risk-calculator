@@ -43,6 +43,17 @@ def cmd_calculate(args):
     return 0
 
 
+def cmd_serve(args):
+    """Run the optional FastAPI application (requires the web extra)."""
+    try:
+        import uvicorn
+    except ImportError:
+        print("Install pip install -e '.[web]' to use the server", file=sys.stderr)
+        return 1
+    uvicorn.run("agents.api:app", host=args.host, port=args.port)
+    return 0
+
+
 def cmd_killip(args):
     """Describe a Killip class."""
     try:
@@ -222,6 +233,12 @@ def main(argv=None):
     )
     p_chat.add_argument("query", nargs="+", help="Query text")
     p_chat.set_defaults(func=cmd_chat)
+
+    # --- serve ---
+    p_serve = subparsers.add_parser("serve", help="Serve the web UI and API")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.set_defaults(func=cmd_serve)
 
     # --- verify-audit ---
     p_verify = subparsers.add_parser(
